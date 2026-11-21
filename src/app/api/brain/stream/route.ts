@@ -128,7 +128,7 @@ export async function POST(request: Request) {
   const imageIds = body.attachments.filter((attachment) => attachment.mimeType?.startsWith("image/")).map((attachment) => attachment.id);
   const imageParts: { image: Uint8Array; mediaType: string }[] = [];
   if (imageIds.length) {
-    if (imageIds.length > 4) return apiError("Attach up to 4 images to one message.", 400);
+    if (imageIds.length > 10) return apiError("Attach up to 10 images to one message.", 400);
     if (!guard.supabase) return apiError("Image analysis requires a signed-in workspace.", 409);
     const { data: imageDocs, error: imageQueryError } = await guard.supabase.from("documents")
       .select("id,mime_type,storage_path,size_bytes").in("id", imageIds)
