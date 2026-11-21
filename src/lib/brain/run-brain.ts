@@ -23,8 +23,12 @@ function provider() {
 }
 
 function cleanOutput(text: string): string {
-  return text.replace(/\bAIza[0-9A-Za-z_-]{20,}\b/g, "[credential removed]")
-    .replace(/\bsk-(?:proj-|live-|svcacct-)?[A-Za-z0-9_-]{20,}\b/g, "[credential removed]");
+  return text
+    .replace(/\bAIza[0-9A-Za-z_-]{20,}\b/g, "[credential removed]")
+    .replace(/\bAQ\.[A-Za-z0-9_-]{20,}\b/g, "[credential removed]")
+    .replace(/\bsk-(?:proj-|live-|svcacct-)?[A-Za-z0-9_-]{20,}\b/g, "[credential removed]")
+    .replace(/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g, "[credential removed]")
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[credential removed]");
 }
 
 export async function runBrain(input: BrainInput): Promise<BrainResponse> {
