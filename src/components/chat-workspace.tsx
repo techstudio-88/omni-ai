@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { ArrowUp, Brain, Check, FilePlus2, Globe2, LoaderCircle, Paperclip, Sparkles, Square, X } from "lucide-react";
 import { modelRegistry } from "@/lib/brain/model-selector";
 import { useWorkspacePreference } from "@/lib/client-preferences";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ChatMessage = { id: string; role: "user" | "assistant"; text: string; demo?: boolean };
 type Attachment = { id: string; name: string; mimeType: string };
@@ -27,18 +28,40 @@ export function ChatWorkspace({ demoMode }: { demoMode: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  async function uploadFile(file?: File) {
-    if (!file) return;
+  async function uploadFiles(fileList?: FileList | null) {
+    const files = Array.from(fileList ?? []);
+    if (!files.length) return;
     setError("");
-    const form = new FormData(); form.set("file", file);
-    setProgress("Adding your document");
-    try {
-      const response = await fetch("/api/documents/upload", { method: "POST", body: form });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "The file could not be added.");
-      setAttachments((current) => [...current, { id: data.document.id, name: data.document.name, mimeType: data.document.mime_type }]);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "The file could not be added."); }
-    finally { setProgress(""); if (fileRef.current) fileRef.current.value = ""; }
+    const supabase = createSupabaseBrowserClient();
+    if (!supabase) { setError("File storage is not configured for this workspace."); return; }
+    const accepted: Attachment[] = [];
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      try {
+        if (file.size > 50 * 1024 * 1024) throw new Error(file.name + " is larger than 50 MB.");
+        setProgress("Uploading " + (index + 1) + " of " + files.length + ": " + file.name);
+        const signedResponse = await fetch("/api/documents/upload-url", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, mimeType: file.type || "application/octet-stream", size: file.size }),
+        });
+        const signed = await signedResponse.json();
+        if (!signedResponse.ok) throw new Error(signed.error ?? "A secure upload link could not be created.");
+        const uploaded = await supabase.storage.from("omnibrain-documents").uploadToSignedUrl(signed.storagePath, signed.token, file, { contentType: file.type || "application/octet-stream" });
+        if (uploaded.error) throw new Error(uploaded.error.message || "The file could not be uploaded.");
+        const finalizedResponse = await fetch("/api/documents/finalize", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: signed.id, name: signed.name, mimeType: signed.mimeType, size: signed.size, storagePath: signed.storagePath }),
+        });
+        const finalized = await finalizedResponse.json();
+        if (!finalizedResponse.ok) throw new Error(finalized.error ?? "The file could not be added to your library.");
+        accepted.push({ id: finalized.document.id, name: finalized.document.name, mimeType: finalized.document.mime_type });
+      } catch (reason) {
+        setError((current) => [current, reason instanceof Error ? reason.message : "A file could not be added."].filter(Boolean).join(" "));
+      }
+    }
+    if (accepted.length) setAttachments((current) => [...current, ...accepted]);
+    setProgress("");
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   async function send(text = draft) {
@@ -107,7 +130,7 @@ export function ChatWorkspace({ demoMode }: { demoMode: boolean }) {
     </div>
     <div className="chat-composer-wrap">
       {attachments.length > 0 && <div className="attached-list">{attachments.map((attachment) => <span className="attached-chip" key={attachment.id}><Paperclip size={12} />{attachment.name}<button aria-label={`Remove ${attachment.name}`} onClick={() => setAttachments((items) => items.filter((item) => item.id !== attachment.id))} style={{ border: 0, background: "transparent", padding: 0, color: "inherit", display: "grid" }}><X size={11} /></button></span>)}</div>}
-      <form className="composer" onSubmit={onSubmit}><textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} placeholder="Ask OmniBrain anything…" aria-label="Message OmniBrain" rows={2} disabled={streaming} /><div className="composer-footer"><div className="composer-tools"><input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp" hidden onChange={(event) => void uploadFile(event.target.files?.[0])} /><button type="button" className="composer-tool" aria-label="Add document" onClick={() => fileRef.current?.click()} title={demoMode ? "Document upload needs a signed-in workspace" : "Add a document"} disabled={demoMode}><FilePlus2 size={16} /></button><button type="button" className={`composer-tool${webSearchEnabled ? " on" : ""}`} aria-pressed={webSearchEnabled} onClick={() => setWebSearchEnabled((value) => !value)} title={searchAllowed ? "Search current information" : "Enable web research in Settings first"} disabled={!searchAllowed}><Globe2 size={16} /></button><button type="button" className={`composer-tool${memoryEnabled ? " on" : ""}`} aria-pressed={memoryEnabled} onClick={() => setMemoryEnabled((value) => !value)} title={memoryAllowed ? "Use saved memories" : "Enable saved memories in Settings first"} disabled={!memoryAllowed}><Brain size={16} /></button></div>{streaming ? <button className="send-button" type="button" aria-label="Stop response" onClick={() => abortRef.current?.abort()}><Square size={13} fill="currentColor" /></button> : <button className="send-button" type="submit" aria-label="Send message" disabled={!draft.trim()}><ArrowUp size={17} /></button>}</div></form>
+      <form className="composer" onSubmit={onSubmit}><textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} placeholder="Ask OmniBrain anything…" aria-label="Message OmniBrain" rows={2} disabled={streaming} /><div className="composer-footer"><div className="composer-tools"><input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp" multiple hidden onChange={(event) => void uploadFiles(event.target.files)} /><button type="button" className="composer-tool" aria-label="Add document" onClick={() => fileRef.current?.click()} title={demoMode ? "Document upload needs a signed-in workspace" : "Add a document"} disabled={demoMode}><FilePlus2 size={16} /></button><button type="button" className={`composer-tool${webSearchEnabled ? " on" : ""}`} aria-pressed={webSearchEnabled} onClick={() => setWebSearchEnabled((value) => !value)} title={searchAllowed ? "Search current information" : "Enable web research in Settings first"} disabled={!searchAllowed}><Globe2 size={16} /></button><button type="button" className={`composer-tool${memoryEnabled ? " on" : ""}`} aria-pressed={memoryEnabled} onClick={() => setMemoryEnabled((value) => !value)} title={memoryAllowed ? "Use saved memories" : "Enable saved memories in Settings first"} disabled={!memoryAllowed}><Brain size={16} /></button></div>{streaming ? <button className="send-button" type="button" aria-label="Stop response" onClick={() => abortRef.current?.abort()}><Square size={13} fill="currentColor" /></button> : <button className="send-button" type="submit" aria-label="Send message" disabled={!draft.trim()}><ArrowUp size={17} /></button>}</div></form>
       <p className="composer-hint">OmniBrain can make mistakes. Check important details. {demoMode ? "Demo responses are clearly labelled." : "Your requests are handled according to your workspace settings."}</p>
     </div>
   </section>;
