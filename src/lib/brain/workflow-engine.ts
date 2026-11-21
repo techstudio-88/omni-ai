@@ -11,7 +11,7 @@ export function buildWorkflowSteps(analysis: RequestAnalysis): string[] {
 
 export function workflowLabel(workflow: Workflow): string {
   const labels: Record<Workflow, string> = {
-    "general-chat": "General chat", research: "Research", "document-qa": "Document intelligence",
+    "general-chat": "General chat", research: "Research", "document-qa": "Document intelligence", "image-analysis": "Image understanding",
     coding: "Coding", comparison: "Model comparison", "structured-extraction": "Structured extraction", planning: "Planning",
   };
   return labels[workflow];
