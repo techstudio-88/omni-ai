@@ -6,6 +6,8 @@ export function analyseRequest(input: Pick<BrainInput, "message" | "attachments"
   const text = input.message.trim();
   const normalized = text.toLowerCase();
   const hasFile = input.attachments.length > 0;
+  const hasImage = input.attachments.some((attachment) => attachment.mimeType?.startsWith("image/"));
+  const hasTextFile = input.attachments.some((attachment) => !attachment.mimeType?.startsWith("image/"));
   let intent: RequestAnalysis["intent"] = "general_chat";
 
   if (input.selectedMode === "compare" || includes(normalized, /\b(compare|comparison|versus|\bvs\.?\b)\b/)) intent = "comparison";
@@ -19,7 +21,7 @@ export function analyseRequest(input: Pick<BrainInput, "message" | "attachments"
   else if (includes(normalized, /\b(plan|roadmap|schedule|steps)\b/)) intent = "planning";
   else if (includes(normalized, /\b(chart|analyze data|analyse data|dataset|csv)\b/)) intent = "data_analysis";
 
-  const needsDocumentSearch = hasFile || intent === "document_question";
+  const needsDocumentSearch = hasTextFile || intent === "document_question";
   const needsWebSearch = input.webSearchEnabled && (intent === "research" || includes(normalized, /https?:\/\//));
   const needsTools = needsWebSearch || needsDocumentSearch || /\d\s*[+*/%-]\s*\d|\b\d+(?:\.\d+)?\s*%\s*of\s*\d+/i.test(text);
   const requiresConfirmation = includes(normalized, /\b(send|publish|delete|pay|purchase|book|create event|message someone|update database)\b/);
