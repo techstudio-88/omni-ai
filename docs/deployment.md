@@ -9,7 +9,7 @@
    - NEXT_PUBLIC_APP_URL with the deployed origin.
    - NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.
    - GEMINI_API_KEYS as a server-only secret containing newly rotated keys.
-   - UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN for shared production rate limits.
+   - Optional: UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN. Without Upstash, authenticated requests use the Supabase-backed shared rate limiter.
    - OMNIBRAIN_ADMIN_USER_IDS only if an operator needs the restricted admin status page.
 4. Add the deployed /auth/callback URL to Supabase's allowed Auth redirect URLs.
 5. Deploy a preview and verify its build output before promoting it.
