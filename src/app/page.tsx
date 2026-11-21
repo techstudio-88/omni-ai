@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, AudioLines, BookOpen, BrainCircuit, Check, ChevronDown, FileSearch, Globe2, Layers3, LockKeyhole, Menu, MessageSquare, MousePointer2, Search, ShieldCheck, Sparkles, X, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, BrainCircuit, FileSearch, Globe2, Layers3, LockKeyhole, Menu, Search, ShieldCheck, Sparkles, X, Zap } from "lucide-react";
 import { Brand } from "@/components/brand";
 
 const capabilities = [
