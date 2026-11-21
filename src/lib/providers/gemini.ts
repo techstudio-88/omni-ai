@@ -15,5 +15,5 @@ export function getGeminiSearchTools() {
   return { google_search: defaultGoogle.tools.googleSearch({}), url_context: defaultGoogle.tools.urlContext({}) };
 }
 export function getProviderReadiness() {
-  return { id: "google", name: "Google Gemini", status: hasGeminiConfig() ? "connected" : "not_configured", configuredKeyCount: config.geminiKeys.length, models: ["gemini-3.5-flash-lite", "gemini-3-flash-preview", "gemini-3.1-pro-preview"] };
+  return { id: "google", name: "Google Gemini", status: hasGeminiConfig() ? "connected" : "not_configured", configuredKeyCount: config.geminiKeys.length, models: ["gemini-3.8-flash", "gemini-4-hydrogen", "gemini-3.5-flash-lite"] };
 }
