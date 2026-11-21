@@ -29,7 +29,7 @@ const streamSchema = z.object({
   conversationId: z.string().uuid().optional(),
   selectedMode: brainRequestSchema.shape.selectedMode.default("chat"),
   selectedModel: z.string().max(100).default("auto"),
-  attachments: brainRequestSchema.shape.attachments.default([]),
+  attachments: brainRequestSchema.shape.attachments.max(20).default([]),
   webSearchEnabled: z.boolean().default(false),
   memoryEnabled: z.boolean().default(false),
 });
@@ -125,12 +125,38 @@ export async function POST(request: Request) {
     const { error: messageError } = await guard.supabase.from("messages").insert({ workspace_id: guard.workspaceId, user_id: guard.auth.userId, conversation_id: conversationId, role: "user", content: message, parts: [{ type: "text", text: message }] });
     if (messageError) return apiError("This message could not be saved. Please try again.", 503);
   }
+  const imageIds = body.attachments.filter((attachment) => attachment.mimeType?.startsWith("image/")).map((attachment) => attachment.id);
+  const imageParts: { image: Uint8Array; mediaType: string }[] = [];
+  if (imageIds.length) {
+    if (imageIds.length > 4) return apiError("Attach up to 4 images to one message.", 400);
+    if (!guard.supabase) return apiError("Image analysis requires a signed-in workspace.", 409);
+    const { data: imageDocs, error: imageQueryError } = await guard.supabase.from("documents")
+      .select("id,mime_type,storage_path,size_bytes").in("id", imageIds)
+      .eq("user_id", guard.auth.userId).eq("workspace_id", guard.workspaceId).eq("status", "ready").is("deleted_at", null);
+    if (imageQueryError || !imageDocs || imageDocs.length !== imageIds.length || imageDocs.some((doc) => !doc.mime_type.startsWith("image/") || doc.size_bytes > 10 * 1024 * 1024)) {
+      return apiError("One or more attached images are unavailable or exceed the 10 MB per-image vision limit.", 400);
+    }
+    for (const doc of imageDocs) {
+      const downloaded = await guard.supabase.storage.from("omnibrain-documents").download(doc.storage_path);
+      if (downloaded.error || !downloaded.data) return apiError("An attached image could not be read from private storage.", 422);
+      imageParts.push({ image: new Uint8Array(await downloaded.data.arrayBuffer()), mediaType: doc.mime_type });
+    }
+  }
+
   const provider = getGeminiProvider();
   const modelId = analysis.needsWebSearch && selected.id === config.fastModel ? "gemini-3-flash-preview" : selected.id;
+  const modelMessages = await convertToModelMessages(body.messages as UIMessage[]);
+  if (imageParts.length) {
+    const lastUser = [...modelMessages].reverse().find((item) => item.role === "user");
+    if (lastUser) {
+      const existing = typeof lastUser.content === "string" ? [{ type: "text" as const, text: lastUser.content }] : lastUser.content;
+      lastUser.content = [...existing, ...imageParts.map((part) => ({ type: "image" as const, image: part.image, mediaType: part.mediaType }))];
+    }
+  }
   const result = streamText({
     model: provider(modelId),
     system: [safeSystemInstruction(), ...contextParts].join("\n\n"),
-    messages: await convertToModelMessages(body.messages as UIMessage[]),
+    messages: modelMessages,
     maxOutputTokens: 1800,
     maxRetries: Math.min(4, Math.max(1, config.geminiKeys.length)),
     abortSignal: request.signal,
