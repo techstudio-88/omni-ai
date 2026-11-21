@@ -9,9 +9,9 @@ export interface ModelDefinition {
 }
 
 export const modelRegistry: ModelDefinition[] = [
-  { id: "gemini-3.5-flash-lite", provider: "google", displayName: "Gemini 3.5 Flash-Lite", capabilities: ["text-generation", "tools", "streaming"], contextWindow: 1_000_000, supportsVision: true, supportsTools: true, supportsStreaming: true, inputCost: null, outputCost: null, speedLevel: "fast", qualityLevel: "standard", enabled: true, fallbackModel: "gemini-3-flash-preview" },
-  { id: "gemini-3-flash-preview", provider: "google", displayName: "Gemini 3 Flash", capabilities: ["text-generation", "vision", "tools", "streaming", "search"], contextWindow: 1_000_000, supportsVision: true, supportsTools: true, supportsStreaming: true, inputCost: null, outputCost: null, speedLevel: "balanced", qualityLevel: "high", enabled: true, fallbackModel: "gemini-3.5-flash-lite" },
-  { id: "gemini-3.1-pro-preview", provider: "google", displayName: "Gemini 3.1 Pro", capabilities: ["text-generation", "vision", "tools", "streaming", "search", "reasoning"], contextWindow: 1_000_000, supportsVision: true, supportsTools: true, supportsStreaming: true, inputCost: null, outputCost: null, speedLevel: "deep", qualityLevel: "high", enabled: true, fallbackModel: "gemini-3.5-flash-lite" },
+  { id: "gemini-3.8-flash", provider: "google", displayName: "Gemini 3.8 Flash", capabilities: ["text-generation", "vision", "tools", "streaming", "search"], contextWindow: 1_000_000, supportsVision: true, supportsTools: true, supportsStreaming: true, inputCost: null, outputCost: null, speedLevel: "fast", qualityLevel: "high", enabled: true, fallbackModel: "gemini-3.5-flash-lite" },
+  { id: "gemini-4-hydrogen", provider: "google", displayName: "Gemini 4 Hydrogen", capabilities: ["text-generation", "vision", "tools", "streaming", "search", "reasoning"], contextWindow: 1_000_000, supportsVision: true, supportsTools: true, supportsStreaming: true, inputCost: null, outputCost: null, speedLevel: "deep", qualityLevel: "high", enabled: true, fallbackModel: "gemini-3.8-flash" },
+  { id: "gemini-3.5-flash-lite", provider: "google", displayName: "Gemini 3.5 Flash-Lite", capabilities: ["text-generation", "vision", "tools", "streaming"], contextWindow: 1_000_000, supportsVision: true, supportsTools: true, supportsStreaming: true, inputCost: null, outputCost: null, speedLevel: "fast", qualityLevel: "standard", enabled: true, fallbackModel: "gemini-3.8-flash" },
 ];
 
 export function selectModel(input: BrainInput, analysis: RequestAnalysis): ModelDefinition {
