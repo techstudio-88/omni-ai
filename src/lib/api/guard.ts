@@ -14,3 +14,7 @@ export async function guardApi(route: string) {
   }
   return { auth, workspaceId: auth.workspaceId, supabase, rate } as const;
 }
+
+export function apiError(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
+}
