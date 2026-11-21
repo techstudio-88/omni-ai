@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   if (!body.success) return apiError("The request is not valid.");
   const guard = await guardApi("brain.plan");
   if ("response" in guard) return guard.response;
-  const input = { ...body.data, userId: guard.auth.userId, workspaceId: "default", conversationId: "plan", userPlan: "free" as const, attachments: body.data.attachments };
+  const input = { ...body.data, userId: guard.auth.userId, workspaceId: guard.workspaceId, conversationId: "plan", userPlan: "free" as const, attachments: body.data.attachments };
   const analysis = analyseRequest(input);
   return NextResponse.json({ analysis, selectedModel: selectModel(input, analysis), steps: buildWorkflowSteps(analysis), tools: planTools(analysis) });
 }

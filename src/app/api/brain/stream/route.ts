@@ -10,12 +10,14 @@ import { getGeminiProvider, getGeminiSearchTools } from "@/lib/providers/gemini"
 import { retrieveDocumentChunks } from "@/lib/documents/retriever";
 import { retrieveMemories, formatMemories } from "@/lib/memory/manager";
 import { calculateFromRequest } from "@/lib/tools/calculator";
+import { getDailyUsage, FREE_DAILY_MESSAGE_LIMIT } from "@/lib/usage-limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const streamSchema = z.object({
   messages: z.array(z.unknown()).min(1).max(40),
+  conversationId: z.string().uuid().optional(),
   selectedMode: brainRequestSchema.shape.selectedMode.default("chat"),
   selectedModel: z.string().max(100).default("auto"),
   attachments: brainRequestSchema.shape.attachments.default([]),
@@ -57,13 +59,13 @@ export async function POST(request: Request) {
   const input = {
     message, attachments: body.attachments, selectedMode: body.selectedMode,
     selectedModel: body.selectedModel, webSearchEnabled: body.webSearchEnabled,
-    memoryEnabled: body.memoryEnabled, userId: guard.auth.userId, workspaceId: "default",
-    conversationId: crypto.randomUUID(), userPlan: "free" as const,
+    memoryEnabled: body.memoryEnabled, userId: guard.auth.userId, workspaceId: guard.workspaceId,
+    conversationId: body.conversationId ?? crypto.randomUUID(), userPlan: "free" as const,
   };
   const analysis = analyseRequest(input);
-  if (analysis.requiresConfirmation) return textOnlyResponse("That request asks for an external action. OmniBrain will not send, publish, delete, pay, or update anything automatically. A connected integration and your confirmation are required.", config.demoMode);
+  if (analysis.requiresConfirmation) return textOnlyResponse("That request asks for an external action. OmniBrain will not send, publish, delete, pay, or update anything automatically. A connected integration and your confirmation are required.", false);
   const arithmetic = calculateFromRequest(message);
-  if (arithmetic !== null && !analysis.needsWebSearch && !analysis.needsDocumentSearch) return textOnlyResponse(arithmetic, config.demoMode);
+  if (arithmetic !== null && !analysis.needsWebSearch && !analysis.needsDocumentSearch) return textOnlyResponse(arithmetic, false);
 
   if (config.demoMode || !hasGeminiConfig()) {
     const selected = selectModel(input, analysis);
@@ -81,6 +83,12 @@ export async function POST(request: Request) {
     return textOnlyResponse(demoText, true);
   }
 
+  if (guard.supabase) {
+    const usage = await getDailyUsage(guard.supabase, guard.auth.userId);
+    if (usage.error) return apiError("Usage limits could not be checked. Try again shortly.", 503);
+    if (usage.used >= FREE_DAILY_MESSAGE_LIMIT) return apiError("You have reached today’s free message limit. Try again tomorrow.", 429);
+  }
+
   const selected = selectModel(input, analysis);
   const docIds = body.attachments.map((attachment) => attachment.id).filter((id) => id !== "demo-sample");
   const [retrieved, memories] = await Promise.all([
@@ -94,6 +102,19 @@ export async function POST(request: Request) {
   } else if (analysis.needsDocumentSearch) contextParts.push("No matching document text was found. Say so clearly.");
   if (memories.length) contextParts.push("User-approved preferences (use only when relevant):\n" + formatMemories(memories));
 
+  const conversationId = input.conversationId;
+  if (guard.supabase) {
+    if (body.conversationId) {
+      const { data: existing } = await guard.supabase.from("conversations").select("id").eq("id", body.conversationId).eq("user_id", guard.auth.userId).eq("workspace_id", guard.workspaceId).is("deleted_at", null).maybeSingle();
+      if (!existing) return apiError("This conversation is not available in your workspace.", 404);
+    } else {
+      const title = message.replace(/\s+/g, " ").slice(0, 88) || "New conversation";
+      const { data: created, error: createError } = await guard.supabase.from("conversations").insert({ id: conversationId, workspace_id: guard.workspaceId, user_id: guard.auth.userId, title, mode: body.selectedMode }).select("id").single();
+      if (createError || !created) return apiError("A conversation could not be saved. Please try again.", 503);
+    }
+    const { error: messageError } = await guard.supabase.from("messages").insert({ workspace_id: guard.workspaceId, user_id: guard.auth.userId, conversation_id: conversationId, role: "user", content: message, parts: [{ type: "text", text: message }] });
+    if (messageError) return apiError("This message could not be saved. Please try again.", 503);
+  }
   const provider = getGeminiProvider();
   const modelId = analysis.needsWebSearch && selected.id === config.fastModel ? "gemini-3-flash-preview" : selected.id;
   const result = streamText({
@@ -106,9 +127,15 @@ export async function POST(request: Request) {
     tools: analysis.needsWebSearch ? getGeminiSearchTools() : undefined,
     onError: () => undefined,
   });
-  void result.usage.then(async (usage) => {
+  if (guard.supabase) {
+    void Promise.resolve(result.text).then(async (responseText) => {
+      await guard.supabase!.from("messages").insert({ workspace_id: guard.workspaceId, user_id: guard.auth.userId, conversation_id: conversationId, role: "assistant", content: responseText, parts: [{ type: "text", text: responseText }], model: modelId, provider: "google", status: "completed" });
+      await guard.supabase!.from("conversations").update({ updated_at: new Date().toISOString(), model: modelId }).eq("id", conversationId).eq("user_id", guard.auth.userId);
+    }).catch(() => undefined);
+  }
+  void Promise.resolve(result.usage).then(async (usage) => {
     if (!guard.supabase) return;
-    await guard.supabase.from("usage_events").insert({ user_id: guard.auth.userId, provider: "google", model: modelId, input_tokens: usage.inputTokens ?? null, output_tokens: usage.outputTokens ?? null, total_tokens: usage.totalTokens ?? null, estimated_cost_usd: null, request_time_ms: 0, status: "completed" });
+    await guard.supabase.from("usage_events").insert({ workspace_id: guard.workspaceId, user_id: guard.auth.userId, provider: "google", model: modelId, input_tokens: usage.inputTokens ?? null, output_tokens: usage.outputTokens ?? null, total_tokens: usage.totalTokens ?? null, estimated_cost_usd: null, request_time_ms: 0, status: "completed" });
   }).catch(() => undefined);
-  return result.toUIMessageStreamResponse({ sendReasoning: false, sendSources: true, headers: { "Cache-Control": "no-store", "X-OmniBrain-Provider": "google", "X-OmniBrain-Model": modelId } });
+  return result.toUIMessageStreamResponse({ sendReasoning: false, sendSources: true, headers: { "Cache-Control": "no-store", "X-OmniBrain-Provider": "google", "X-OmniBrain-Model": modelId, "X-OmniBrain-Conversation": conversationId } });
 }

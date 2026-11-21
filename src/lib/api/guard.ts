@@ -12,7 +12,7 @@ export async function guardApi(route: string) {
     return { response: NextResponse.json({ error: rate.mode === "missing" ? "Production rate limiting is not configured." : "Too many requests. Please wait and try again.", retryAfterSeconds: rate.retryAfterSeconds }, { status, headers: { "Retry-After": String(rate.retryAfterSeconds) } }) } as const;
   }
   const supabase = auth.isDemo ? null : await createSupabaseServerClient();
-  return { auth, supabase, rate } as const;
+  return { auth, workspaceId: auth.workspaceId, supabase, rate } as const;
 }
 export function apiError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });

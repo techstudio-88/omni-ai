@@ -62,14 +62,14 @@ export async function runBrain(input: BrainInput): Promise<BrainResponse> {
       maxOutputTokens: 1800,
       maxRetries: Math.min(4, config.geminiKeys.length),
       tools: analysis.needsWebSearch ? { google_search: google.tools.googleSearch({}), url_context: google.tools.urlContext({}) } : undefined,
-      onError: () => undefined,
     });
     const output = cleanOutput(result.text);
     const evaluated = evaluateResponse(output, analysis.responseFormat);
     const issue = containsCredential(result.text) ? ["Provider output contained a credential-like string and was redacted."] : [];
     logExecution({ requestId: input.conversationId, userId: input.userId, provider: "google", model: selected.id, workflow, durationMs: Date.now() - startedAt, status: "completed" });
-    return { ...base, responseText: output, citations: result.sources.map((source, index) => ({ id: source.id || `web-${index}`, title: source.title || source.url, url: source.url, sourceType: "web", retrievedAt: new Date().toISOString() })), toolsUsed: analysis.needsWebSearch ? ["web-search"] : [], usage: usageInfo(result.usage.inputTokens, result.usage.outputTokens, Date.now() - startedAt), warnings: [...warnings, ...evaluated.warnings, ...issue], executionStatus: "completed" };
-  } catch (error) {
+    const citations = result.sources.flatMap((source, index) => "url" in source && typeof source.url === "string" ? [{ id: source.id || `web-${index}`, title: source.title || source.url, url: source.url, sourceType: "web" as const, retrievedAt: new Date().toISOString() }] : []);
+    return { ...base, responseText: output, citations, toolsUsed: analysis.needsWebSearch ? ["web-search"] : [], usage: usageInfo(result.usage.inputTokens, result.usage.outputTokens, Date.now() - startedAt), warnings: [...warnings, ...evaluated.warnings, ...issue], executionStatus: "completed" };
+  } catch {
     logExecution({ requestId: input.conversationId, userId: input.userId, provider: "google", model: selected.id, workflow, durationMs: Date.now() - startedAt, status: "failed" });
     return { ...base, responseText: "The provider call failed. Check the Gemini provider configuration and try again.", usage: usageInfo(null, null, Date.now() - startedAt), warnings: [...warnings, "Provider failure was sanitized; no credentials or request text were logged."], executionStatus: "failed" };
   }

@@ -16,3 +16,4 @@ blob-report/
 Thumbs.db
 *.log
 supabase/.temp/
+tsconfig.tsbuildinfo
