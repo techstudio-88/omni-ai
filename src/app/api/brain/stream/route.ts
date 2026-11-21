@@ -29,7 +29,7 @@ const streamSchema = z.object({
   conversationId: z.string().uuid().optional(),
   selectedMode: brainRequestSchema.shape.selectedMode.default("chat"),
   selectedModel: z.string().max(100).default("auto"),
-  attachments: brainRequestSchema.shape.attachments.max(20).default([]),
+  attachments: brainRequestSchema.shape.attachments.max(100).default([]),
   webSearchEnabled: z.boolean().default(false),
   memoryEnabled: z.boolean().default(false),
 });
