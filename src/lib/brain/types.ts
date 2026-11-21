@@ -7,7 +7,7 @@ export type Intent = (typeof intents)[number];
 export type BrainMode = "chat" | "research" | "compare" | "documents" | "coding" | "writing";
 export type Complexity = "low" | "medium" | "high";
 export type SafetyLevel = "safe" | "sensitive" | "blocked";
-export type Workflow = "general-chat" | "research" | "document-qa" | "coding" | "comparison" | "structured-extraction" | "planning";
+export type Workflow = "general-chat" | "research" | "document-qa" | "image-analysis" | "coding" | "comparison" | "structured-extraction" | "planning";
 
 export interface AttachmentRef { id: string; name: string; mimeType?: string; }
 export interface BrainInput {
