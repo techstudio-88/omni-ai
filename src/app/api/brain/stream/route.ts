@@ -144,7 +144,7 @@ export async function POST(request: Request) {
   }
 
   const provider = getGeminiProvider();
-  const modelId = analysis.needsWebSearch && selected.id === config.fastModel ? "gemini-3-flash-preview" : selected.id;
+  const modelId = selected.id;
   const modelMessages = await convertToModelMessages(body.messages as UIMessage[]);
   if (imageParts.length) {
     const lastUser = [...modelMessages].reverse().find((item) => item.role === "user");
