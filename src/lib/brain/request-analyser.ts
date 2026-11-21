@@ -5,7 +5,6 @@ const includes = (text: string, patterns: RegExp) => patterns.test(text);
 export function analyseRequest(input: Pick<BrainInput, "message" | "attachments" | "selectedMode" | "webSearchEnabled" | "memoryEnabled">): RequestAnalysis {
   const text = input.message.trim();
   const normalized = text.toLowerCase();
-  const hasFile = input.attachments.length > 0;
   const hasImage = input.attachments.some((attachment) => attachment.mimeType?.startsWith("image/"));
   const hasTextFile = input.attachments.some((attachment) => !attachment.mimeType?.startsWith("image/"));
   let intent: RequestAnalysis["intent"] = "general_chat";
@@ -28,12 +27,12 @@ export function analyseRequest(input: Pick<BrainInput, "message" | "attachments"
   const safetyLevel = includes(normalized, /\b(suicide|self-harm|weapon construction|steal credentials)\b/) ? "blocked" : includes(normalized, /\b(medical|diagnosis|legal advice|investment|tax advice|financial advice)\b/) ? "sensitive" : "safe";
   const complexity: RequestAnalysis["complexity"] = text.length > 900 || (text.match(/\?/g)?.length ?? 0) > 3 ? "high" : text.length < 120 ? "low" : "medium";
   const language = /[\u0900-\u097f]/.test(text) ? "hi" : /[\u4e00-\u9fff]/.test(text) ? "zh" : "en";
-  const workflow = intent === "research" ? "research" : intent === "document_question" ? "document-qa" : intent === "coding" ? "coding" : intent === "comparison" ? "comparison" : intent === "structured_extraction" ? "structured-extraction" : intent === "planning" ? "planning" : "general-chat";
+  const workflow = intent === "research" ? "research" : intent === "image_analysis" ? "image-analysis" : intent === "document_question" ? "document-qa" : intent === "coding" ? "coding" : intent === "comparison" ? "comparison" : intent === "structured_extraction" ? "structured-extraction" : intent === "planning" ? "planning" : "general-chat";
 
   return {
     intent, language, complexity, workflow, needsWebSearch,
     needsDocumentSearch, needsMemory: input.memoryEnabled,
-    needsTools, requiredCapabilities: [needsDocumentSearch ? "document-retrieval" : "text-generation"],
+    needsTools, requiredCapabilities: [hasImage ? "vision" : needsDocumentSearch ? "document-retrieval" : "text-generation"],
     requiresConfirmation, safetyLevel, responseFormat: /\b(json|valid json)\b/i.test(text) ? "json" : "markdown",
   };
 }
