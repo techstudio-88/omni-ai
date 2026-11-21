@@ -15,8 +15,17 @@ import { getDailyUsage, FREE_DAILY_MESSAGE_LIMIT } from "@/lib/usage-limits";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const uiMessageSchema = z.object({
+  id: z.string().max(128).optional(),
+  role: z.enum(["user", "assistant"]),
+  parts: z.array(z.object({
+    type: z.literal("text"),
+    text: z.string().max(20_000),
+  })).max(20),
+});
+
 const streamSchema = z.object({
-  messages: z.array(z.unknown()).min(1).max(40),
+  messages: z.array(uiMessageSchema).min(1).max(40),
   conversationId: z.string().uuid().optional(),
   selectedMode: brainRequestSchema.shape.selectedMode.default("chat"),
   selectedModel: z.string().max(100).default("auto"),
@@ -54,7 +63,8 @@ export async function POST(request: Request) {
   const body = parsed.data;
   const message = latestUserText(body.messages);
   if (!message) return apiError("Write a message before sending.");
-  if (containsCredential(message)) return textOnlyResponse("This message appears to contain a credential. I did not send or store it. Revoke it and continue without sharing secrets.", false, 400);
+  const historyContainsCredential = body.messages.some((item) => item.parts.some((part) => containsCredential(part.text)));
+  if (historyContainsCredential) return textOnlyResponse("A message in this conversation appears to contain a credential. I did not send it to a provider. Remove it from the conversation, revoke it, and continue without sharing secrets.", false, 400);
 
   const input = {
     message, attachments: body.attachments, selectedMode: body.selectedMode,

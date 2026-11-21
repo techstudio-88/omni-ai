@@ -1,5 +1,6 @@
 const credentialPatterns = [
   /\bAIza[0-9A-Za-z_-]{20,}\b/,
+  /\bAQ\.[A-Za-z0-9_-]{20,}\b/,
   /\bsk-(?:proj-|live-|svcacct-)?[A-Za-z0-9_-]{20,}\b/,
   /\bgh[pousr]_[A-Za-z0-9]{20,}\b/,
   /\bAKIA[0-9A-Z]{16}\b/,
