@@ -6,7 +6,7 @@ export const config = {
   geminiKeys: getGeminiKeys(),
   fastModel: process.env.GEMINI_MODEL_FAST ?? "gemini-3.8-flash",
   reasoningModel: process.env.GEMINI_MODEL_REASONING ?? "gemini-4-hydrogen",
-  visionModel: process.env.GEMINI_MODEL_VISION ?? "gemini-3.1-pro-preview",
+  visionModel: process.env.GEMINI_MODEL_VISION ?? "gemini-4-hydrogen",
   redisUrl: process.env.UPSTASH_REDIS_REST_URL,
   redisToken: process.env.UPSTASH_REDIS_REST_TOKEN,
 } as const;
