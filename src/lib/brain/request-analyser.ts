@@ -10,7 +10,8 @@ export function analyseRequest(input: Pick<BrainInput, "message" | "attachments"
   let intent: RequestAnalysis["intent"] = "general_chat";
 
   if (input.selectedMode === "compare" || includes(normalized, /\b(compare|comparison|versus|\bvs\.?\b)\b/)) intent = "comparison";
-  else if (hasFile || includes(normalized, /\b(pdf|document|file|attachment|contract|resume|spreadsheet)\b/)) intent = "document_question";
+  else if (hasImage && !hasTextFile) intent = "image_analysis";
+  else if (hasTextFile || includes(normalized, /\b(pdf|document|file|attachment|contract|resume|spreadsheet)\b/)) intent = "document_question";
   else if (input.selectedMode === "research" || includes(normalized, /\b(latest|current|today|this week|recent|research|sources|citations|look up)\b/)) intent = "research";
   else if (input.selectedMode === "coding" || includes(normalized, /\b(code|typescript|javascript|python|react|next\.js|debug|function|component|api route)\b/)) intent = "coding";
   else if (input.selectedMode === "writing" || includes(normalized, /\b(write|draft|rewrite|email|story|post|essay)\b/)) intent = "writing";
