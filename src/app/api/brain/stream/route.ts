@@ -144,7 +144,7 @@ export async function POST(request: Request) {
   }
 
   const provider = getGeminiProvider();
-  const modelId = selected.id;
+  const modelId = selected.providerModelId;
   const modelMessages = await convertToModelMessages(body.messages as UIMessage[]);
   if (imageParts.length) {
     const lastUser = [...modelMessages].reverse().find((item) => item.role === "user");
@@ -173,5 +173,5 @@ export async function POST(request: Request) {
     if (!guard.supabase) return;
     await guard.supabase.from("usage_events").insert({ workspace_id: guard.workspaceId, user_id: guard.auth.userId, provider: "google", model: modelId, input_tokens: usage.inputTokens ?? null, output_tokens: usage.outputTokens ?? null, total_tokens: usage.totalTokens ?? null, estimated_cost_usd: null, request_time_ms: 0, status: "completed" });
   }).catch(() => undefined);
-  return result.toUIMessageStreamResponse({ sendReasoning: false, sendSources: true, headers: { "Cache-Control": "no-store", "X-OmniBrain-Provider": "google", "X-OmniBrain-Model": modelId, "X-OmniBrain-Conversation": conversationId } });
+  return result.toUIMessageStreamResponse({ sendReasoning: false, sendSources: true, headers: { "Cache-Control": "no-store", "X-OmniBrain-Provider": "google", "X-OmniBrain-Model": selected.displayName, "X-OmniBrain-Conversation": conversationId } });
 }
