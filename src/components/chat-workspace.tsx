@@ -95,7 +95,7 @@ export function ChatWorkspace({ demoMode }: { demoMode: boolean }) {
       }
       const responseIsDemo = response.headers.get("X-OmniBrain-Mode") === "demo";
       setProgress(webSearchEnabled ? "Searching the web" : "Preparing a response");
-      const reader = response.body.getReader(); const decoder = new TextDecoder(); let pending = ""; let answer = "";
+      const reader = response.body.getReader(); const decoder = new TextDecoder(); let pending = ""; let answer = ""; let streamError = "";
       while (true) {
         const { value, done } = await reader.read(); if (done) break;
         pending += decoder.decode(value, { stream: true });
@@ -105,7 +105,7 @@ export function ChatWorkspace({ demoMode }: { demoMode: boolean }) {
           const payload = line.slice(6); if (payload === "[DONE]") continue;
           try {
             const event = JSON.parse(payload) as { type?: string; delta?: string; errorText?: string; error?: string; messageMetadata?: { demoMode?: boolean } };
-            if (event.type === "error") throw new Error(event.errorText ?? event.error ?? "The selected model could not respond.");
+            if (event.type === "error") streamError = event.errorText ?? event.error ?? "The selected model could not respond.";
             if (event.type === "text-delta" && event.delta) {
               answer += event.delta;
               setMessages([...currentMessages, { id: "streaming-answer", role: "assistant", text: answer, demo: responseIsDemo }]);
@@ -113,6 +113,7 @@ export function ChatWorkspace({ demoMode }: { demoMode: boolean }) {
           } catch { /* Ignore incomplete or non-JSON stream events. */ }
         }
       }
+      if (streamError) throw new Error(streamError);
       if (!answer) answer = "The response ended before any answer arrived. Please try again.";
       setMessages([...currentMessages, { id: crypto.randomUUID(), role: "assistant", text: answer, demo: responseIsDemo }]);
       setAttachments([]);
