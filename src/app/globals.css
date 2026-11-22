@@ -62,3 +62,20 @@
 .ob-documents-page{position:relative}
 .ob-doc-drop-overlay{position:fixed;inset:80px 18px 18px;z-index:25}
 @media(max-width:700px){.chat-head{gap:8px}.model-select{max-width:150px;min-width:116px;font-size:11px}.composer{border-radius:19px;padding:10px}.chat-layout.is-dragging:after{inset:3px}}
+
+
+.ob-model-picker{position:relative;z-index:12}
+.ob-model-trigger{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 12px;border:1px solid #e6e2ec;border-radius:12px;background:#fff;color:#373342;font-size:12px;font-weight:650;box-shadow:0 2px 9px #26203a08;cursor:pointer;transition:border-color .16s,box-shadow .16s}
+.ob-model-trigger:hover{border-color:#c8b9e8;box-shadow:0 4px 16px #7652c611}
+.ob-model-trigger>svg:first-child{color:#896bc6}
+.ob-model-trigger>svg:last-child{color:#8d8798}
+.ob-model-menu{position:absolute;right:0;top:calc(100% + 9px);width:min(340px,calc(100vw - 30px));padding:7px;border:1px solid #e8e4ef;border-radius:17px;background:#fff;box-shadow:0 20px 55px #211a3826;animation:ob-menu-in .14s ease-out}
+.ob-model-option{width:100%;display:flex;align-items:center;gap:10px;padding:11px 10px;border:0;border-radius:11px;background:transparent;text-align:left;color:#383345;cursor:pointer}
+.ob-model-option:hover,.ob-model-option.selected{background:#f5f1fc}
+.ob-model-option>svg:last-child{margin-left:auto;color:#7655ba}
+.ob-model-symbol{width:30px;height:30px;flex:0 0 30px;border:1px solid #ece6f7;border-radius:10px;background:#faf8ff;display:grid;place-items:center;color:#8667c5}
+.ob-model-copy{display:grid;gap:3px;min-width:0}
+.ob-model-copy b{font-size:12px;font-weight:700}
+.ob-model-copy small{font-size:10px;color:#827d8e;line-height:1.4}
+@keyframes ob-menu-in{from{opacity:0;transform:translateY(-4px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:430px){.ob-model-trigger{padding:0 9px;min-height:34px}.ob-model-menu{right:-3px}}
