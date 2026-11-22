@@ -37,7 +37,7 @@ export async function runBrain(input: BrainInput): Promise<BrainResponse> {
   const workflow = routeIntent(analysis.intent);
   const selected = selectModel(input, analysis);
   const warnings = safetyWarning(input.message);
-  const base = { provider: "google", model: selected.id, workflow, citations: [] as Citation[], filesUsed: [] as string[], toolsUsed: [] as string[] };
+  const base = { provider: "google", model: selected.displayName, workflow, citations: [] as Citation[], filesUsed: [] as string[], toolsUsed: [] as string[] };
 
   if (analysis.safetyLevel === "blocked") {
     return { ...base, responseText: "I can’t help with instructions that could cause harm. If someone may be in immediate danger, contact local emergency support.", usage: usageInfo(null, null, Date.now() - startedAt), warnings: ["Request blocked by the safety check."], executionStatus: "failed" };
@@ -60,7 +60,7 @@ export async function runBrain(input: BrainInput): Promise<BrainResponse> {
     const googleProvider = provider();
     const prompt = input.message;
     const result = await generateText({
-      model: googleProvider(selected.id),
+      model: googleProvider(selected.providerModelId),
       system: safeSystemInstruction(),
       prompt,
       maxOutputTokens: 1800,
@@ -70,7 +70,7 @@ export async function runBrain(input: BrainInput): Promise<BrainResponse> {
     const output = cleanOutput(result.text);
     const evaluated = evaluateResponse(output, analysis.responseFormat);
     const issue = containsCredential(result.text) ? ["Provider output contained a credential-like string and was redacted."] : [];
-    logExecution({ requestId: input.conversationId, userId: input.userId, provider: "google", model: selected.id, workflow, durationMs: Date.now() - startedAt, status: "completed" });
+    logExecution({ requestId: input.conversationId, userId: input.userId, provider: "google", model: selected.providerModelId, workflow, durationMs: Date.now() - startedAt, status: "completed" });
     const citations = result.sources.flatMap((source, index) => "url" in source && typeof source.url === "string" ? [{ id: source.id || `web-${index}`, title: source.title || source.url, url: source.url, sourceType: "web" as const, retrievedAt: new Date().toISOString() }] : []);
     return { ...base, responseText: output, citations, toolsUsed: analysis.needsWebSearch ? ["web-search"] : [], usage: usageInfo(result.usage.inputTokens, result.usage.outputTokens, Date.now() - startedAt), warnings: [...warnings, ...evaluated.warnings, ...issue], executionStatus: "completed" };
   } catch {
