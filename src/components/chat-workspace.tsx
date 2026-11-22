@@ -4,7 +4,7 @@ import { DragEvent, FormEvent, KeyboardEvent, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUp, Brain, Check, ChevronDown, FilePlus2, Globe2, LoaderCircle, Paperclip, Sparkles, Square, X } from "lucide-react";
-import { modelRegistry } from "@/lib/brain/model-selector";
+import { publicModelCatalog } from "@/lib/brain/public-models";
 import { useWorkspacePreference } from "@/lib/client-preferences";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -132,13 +132,13 @@ export function ChatWorkspace({ demoMode }: { demoMode: boolean }) {
     {isDragging && <div className="ob-drop-overlay"><div><FilePlus2 size={24}/><b>Drop files to attach</b><span>PDF, DOCX, text, CSV, JSON, HTML and images · up to 50 MB each</span></div></div>}
     <div className="chat-head"><span className="mode-chip"><span className="mode-dot" />{webSearchEnabled ? "Research mode" : "OmniBrain chat"}</span><div className="ob-model-picker">
       <button type="button" className="ob-model-trigger" aria-haspopup="listbox" aria-expanded={modelMenuOpen} onClick={() => setModelMenuOpen((value) => !value)}>
-        <Sparkles size={14}/><span>{selectedModel === "auto" ? "Auto" : modelRegistry.find((model) => model.id === selectedModel)?.displayName ?? "Auto"}</span><ChevronDown size={13}/>
+        <Sparkles size={14}/><span>{selectedModel === "auto" ? "Auto" : publicModelCatalog.find((model) => model.id === selectedModel)?.displayName ?? "Auto"}</span><ChevronDown size={13}/>
       </button>
       {modelMenuOpen && <div className="ob-model-menu" role="listbox" aria-label="Choose a Dist model">
         <button type="button" role="option" aria-selected={selectedModel === "auto"} className={"ob-model-option" + (selectedModel === "auto" ? " selected" : "")} onClick={() => { setSelectedModel("auto"); setModelMenuOpen(false); }}>
           <span className="ob-model-symbol"><Sparkles size={14}/></span><span className="ob-model-copy"><b>Auto</b><small>Choose the best model for each request</small></span>{selectedModel === "auto" && <Check size={14}/>}
         </button>
-        {modelRegistry.map((model) => <button type="button" role="option" aria-selected={selectedModel === model.id} key={model.id} className={"ob-model-option" + (selectedModel === model.id ? " selected" : "")} onClick={() => { setSelectedModel(model.id); setModelMenuOpen(false); }}>
+        {publicModelCatalog.map((model) => <button type="button" role="option" aria-selected={selectedModel === model.id} key={model.id} className={"ob-model-option" + (selectedModel === model.id ? " selected" : "")} onClick={() => { setSelectedModel(model.id); setModelMenuOpen(false); }}>
           <span className="ob-model-symbol"><Sparkles size={14}/></span><span className="ob-model-copy"><b>{model.displayName}</b><small>{model.description}</small></span>{selectedModel === model.id && <Check size={14}/>}
         </button>)}
       </div>}
