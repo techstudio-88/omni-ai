@@ -2,10 +2,10 @@ import Papa from "papaparse";
 import mammoth from "mammoth";
 
 export interface ExtractedPage { pageNumber: number | null; sectionTitle: string | null; text: string; }
-const allowedTypes = new Set(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain", "text/markdown", "text/csv", "image/png", "image/jpeg", "image/webp"]);
+const allowedTypes = new Set(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain", "text/markdown", "text/csv", "image/png", "image/jpeg", "image/webp", "application/json", "text/html", "application/xml", "text/xml", "text/x-log"]);
 export function isSupportedDocument(mimeType: string, name: string): boolean {
   const ext = name.toLowerCase().split(".").pop();
-  return allowedTypes.has(mimeType) || ["pdf", "docx", "txt", "md", "csv", "png", "jpg", "jpeg", "webp"].includes(ext ?? "");
+  return allowedTypes.has(mimeType) || ["pdf", "docx", "txt", "md", "csv", "png", "jpg", "jpeg", "webp", "json", "html", "xml", "log"].includes(ext ?? "");
 }
 
 export async function extractDocument(buffer: Buffer, mimeType: string, name: string): Promise<ExtractedPage[]> {
