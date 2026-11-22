@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       `Workflow: ${analysis.workflow}`,
       `Model selected: ${selected.displayName}`,
       "",
-      "This is sample output, not a live model response. Add newly rotated Gemini API keys to the server environment to enable model calls.",
+      "This is sample output, not a live model response. Connect a live Dist Engine provider in Settings to enable real model responses.",
       "",
       "Sample source (demo data): https://example.com/omnibrain-demo",
     ].join("\n");
@@ -173,5 +173,5 @@ export async function POST(request: Request) {
     if (!guard.supabase) return;
     await guard.supabase.from("usage_events").insert({ workspace_id: guard.workspaceId, user_id: guard.auth.userId, provider: "google", model: modelId, input_tokens: usage.inputTokens ?? null, output_tokens: usage.outputTokens ?? null, total_tokens: usage.totalTokens ?? null, estimated_cost_usd: null, request_time_ms: 0, status: "completed" });
   }).catch(() => undefined);
-  return result.toUIMessageStreamResponse({ sendReasoning: false, sendSources: true, headers: { "Cache-Control": "no-store", "X-OmniBrain-Provider": "google", "X-OmniBrain-Model": selected.displayName, "X-OmniBrain-Conversation": conversationId } });
+  return result.toUIMessageStreamResponse({ sendReasoning: false, sendSources: true, onError: () => "The selected model could not respond. Check the Dist Engine connection in Settings.", headers: { "Cache-Control": "no-store", "X-OmniBrain-Provider": "google", "X-OmniBrain-Model": selected.displayName, "X-OmniBrain-Conversation": conversationId } });
 }
