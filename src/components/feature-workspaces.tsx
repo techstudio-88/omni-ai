@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Activity, ArrowRight, BookOpen, Brain, CircleAlert, FileSearch, FileText, FolderKanban, LoaderCircle, Plus, Search, Shield, Sparkles, Trash2, Upload } from "lucide-react";
 import { saveWorkspacePreference, useWorkspacePreference } from "@/lib/client-preferences";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ApiMessage = { error?: string };
 async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -68,11 +69,26 @@ export function DocumentsWorkspace() {
     void apiJson<{ documents: DocumentItem[]; demo?: boolean }>("/api/documents").then((data) => { if (active) { setDocuments(data.documents); setDemo(Boolean(data.demo)); } }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "Documents could not load."); });
     return () => { active = false; };
   }, []);
-  async function upload(file?: File) {
-    if (!file) return; setBusy(true); setError(""); const form = new FormData(); form.set("file", file);
-    try { await apiJson("/api/documents/upload", { method: "POST", body: form }); await load(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Upload failed."); }
-    finally { setBusy(false); if (fileRef.current) fileRef.current.value = ""; }
+  async function upload(files?: FileList | null) {
+    const selected = Array.from(files ?? []);
+    if (!selected.length) return;
+    setBusy(true); setError("");
+    const supabase = createSupabaseBrowserClient();
+    if (!supabase) { setError("Storage is not configured for this preview."); setBusy(false); return; }
+    const failures: string[] = [];
+    for (const file of selected) {
+      try {
+        if (file.size > 50 * 1024 * 1024) throw new Error(file.name + " exceeds 50 MB.");
+        const signed = await apiJson<{ id: string; name: string; mimeType: string; size: number; storagePath: string; token: string }>("/api/documents/upload-url", formJson({ name: file.name, mimeType: file.type || "application/octet-stream", size: file.size }));
+        const stored = await supabase.storage.from("omnibrain-documents").uploadToSignedUrl(signed.storagePath, signed.token, file, { contentType: file.type || "application/octet-stream" });
+        if (stored.error) throw new Error(stored.error.message);
+        await apiJson("/api/documents/finalize", formJson({ id: signed.id, name: signed.name, mimeType: signed.mimeType, size: signed.size, storagePath: signed.storagePath }));
+      } catch (reason) { failures.push(reason instanceof Error ? reason.message : file.name + " failed."); }
+    }
+    if (failures.length) setError(failures.join(" "));
+    try { await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "The library could not refresh."); }
+    setBusy(false);
+    if (fileRef.current) fileRef.current.value = "";
   }
   async function remove(document: DocumentItem) {
     if (document.id === "demo-sample") { setError("Sample documents are examples and cannot be deleted."); return; }
@@ -84,11 +100,11 @@ export function DocumentsWorkspace() {
     try { setAnswer(await apiJson<DocumentAnswer>("/api/documents/query", formJson({ query: question.trim(), documentIds: documents.filter((item) => item.id !== "demo-sample").map((item) => item.id) }))); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Search failed."); } finally { setBusy(false); }
   }
-  const action = <><input ref={fileRef} type="file" hidden accept=".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp" onChange={(event) => void upload(event.target.files?.[0])} /><button className="button" onClick={() => fileRef.current?.click()} disabled={busy || demo}><Upload size={14} />Add document</button></>;
-  return <div className="studio-content"><PageHeading title="Documents" description="Add private files, find relevant passages, and use them in your conversations." action={action} />{demo && <div className="toast">You’re viewing sample documents. Uploads require a signed-in workspace and private storage.</div>}{error && <div role="alert" className="toast">{error}</div>}
+  const action = <><input ref={fileRef} type="file" hidden accept=".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.json,.html,.xml,.log" multiple onChange={(event) => void upload(event.target.files)} /><button className="button" onClick={() => fileRef.current?.click()} disabled={busy}><Upload size={14} />Add document</button></>;
+  return <div className="studio-content"><PageHeading title="Documents" description="Add private files, find relevant passages, and use them in your conversations." action={action} />{demo && <div className="toast">You’re viewing sample documents. Sign in to upload files to your private workspace.</div>}{error && <div role="alert" className="toast">{error}</div>}
     <div className="section-grid" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(280px,.8fr)" }}>
       <Panel className="list-card"><div className="list-row"><b>Your document library</b><span className="mini-label">Private to this workspace</span></div>{documents.length === 0 ? <div className="empty-state"><div className="section-icon"><FileText size={15} /></div><h2>No documents yet</h2><p>Add a supported file to index searchable passages.</p></div> : documents.map((document) => <div className="list-row" key={document.id}><div><b>{document.name}</b><small>{document.id === "demo-sample" ? "Sample document · demo data" : (document.size_bytes / 1024).toFixed(0) + " KB · " + document.status}</small></div><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span className={"status-tag" + (document.status === "ready" || document.status === "sample" ? "" : " pending")}>{document.status}</span>{document.id !== "demo-sample" && <button className="icon-button" aria-label={"Delete " + document.name} onClick={() => void remove(document)}><Trash2 size={13} /></button>}</div></div>)}</Panel>
-      <Panel className="form-card" style={{ maxWidth: "none" }}><div className="section-icon"><FileSearch size={16} /></div><h2 style={{ fontSize: 14, margin: "0 0 6px" }}>Find a passage</h2><p className="muted" style={{ fontSize: 11, margin: "0 0 15px" }}>Search text extracted from your files. Images are stored, but image reading is not connected yet.</p><form onSubmit={query}><div className="form-field"><label htmlFor="document-query">Question about your documents</label><textarea id="document-query" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="What should I look for?" /></div><button className="button" disabled={busy || !question.trim()}>{busy ? "Searching…" : <>Search passages <Search size={14} /></>}</button></form>
+      <Panel className="form-card" style={{ maxWidth: "none" }}><div className="section-icon"><FileSearch size={16} /></div><h2 style={{ fontSize: 14, margin: "0 0 6px" }}>Find a passage</h2><p className="muted" style={{ fontSize: 11, margin: "0 0 15px" }}>Search text extracted from your files. Images can be attached to a chat for visual analysis with Dist Pro.</p><form onSubmit={query}><div className="form-field"><label htmlFor="document-query">Question about your documents</label><textarea id="document-query" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="What should I look for?" /></div><button className="button" disabled={busy || !question.trim()}>{busy ? "Searching…" : <>Search passages <Search size={14} /></>}</button></form>
         {answer && <div style={{ marginTop: 15 }}>{answer.message && <p className="toast">{answer.message}</p>}{answer.chunks.map((chunk, index) => <div key={chunk.documentName + index} style={{ borderTop: "1px solid #edf0f0", padding: "12px 0" }}><b style={{ fontSize: 10 }}>{chunk.documentName}{chunk.pageNumber ? " · page " + chunk.pageNumber : ""}</b><p style={{ fontSize: 11, lineHeight: 1.6, color: "#61717d", margin: "6px 0 0" }}>{chunk.text}</p></div>)}{!answer.chunks.length && !answer.message && <p className="mini-label">No matching passages were found.</p>}</div>}
       </Panel>
     </div>
