@@ -104,7 +104,8 @@ export function ChatWorkspace({ demoMode }: { demoMode: boolean }) {
           if (!line.startsWith("data: ")) continue;
           const payload = line.slice(6); if (payload === "[DONE]") continue;
           try {
-            const event = JSON.parse(payload) as { type?: string; delta?: string; messageMetadata?: { demoMode?: boolean } };
+            const event = JSON.parse(payload) as { type?: string; delta?: string; errorText?: string; error?: string; messageMetadata?: { demoMode?: boolean } };
+            if (event.type === "error") throw new Error(event.errorText ?? event.error ?? "The selected model could not respond.");
             if (event.type === "text-delta" && event.delta) {
               answer += event.delta;
               setMessages([...currentMessages, { id: "streaming-answer", role: "assistant", text: answer, demo: responseIsDemo }]);
